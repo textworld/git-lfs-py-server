@@ -73,7 +73,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=long,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ inputs.tag_suffix }},enable={{inputs.tag_suffix != ''}}
+            type=raw,value=${{ inputs.tag_suffix }},enable=${{ inputs.tag_suffix != '' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
