@@ -89,8 +89,10 @@ jobs:
           # GitHub Actions Cache 缓存镜像层
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # 输出 SBOM 和 provenance 到镜像
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          # 生成 provenance attestation + SBOM attestation
+          # （由 docker/build-push-action 控制，而不是通过 outputs:）
+          provenance: true
+          sbom: true
 
   # 镜像扫描：检测已知漏洞
   scan:
