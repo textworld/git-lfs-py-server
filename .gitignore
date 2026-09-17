@@ -1,0 +1,37 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ===== uv =====
+# .venv 由 uv 创建，默认 gitignore
+.venv/
+# uv.lock 应提交到仓库（保证依赖可复现），不要忽略
+# uv.lock
+
+# ===== 项目运行时产物 =====
+.env
+lfs_metadata.db
+lfs_metadata.db-journal
+lfs_metadata.db-shm
+lfs_metadata.db-wal
+
+# ===== 临时文件 =====
+*.tmp
+*.swp
+
+# ===== IDE / OS =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== Docker =====
+Dockerfile.local
+docker-compose.override.yml
