@@ -1,0 +1,46 @@
+# 防止 Docker build context 过大（避免把 .venv、.git 等塞进镜像）
+# 这些文件应该通过 Dockerfile 显式 COPY，而不是从 context 推断
+
+# Python 构建产物
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# 测试和覆盖率
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# 项目运行时数据
+.env
+lfs_metadata.db
+lfs_metadata.db-*
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Git / CI
+.git/
+.gitignore
+.github/
+
+# 文档
+*.md
+LICENSE
+
+# Dockerfile 本体（避免 self-reference）
+Dockerfile
+.dockerignore
+
+# Makefile（开发工具，不需要进镜像）
+Makefile
