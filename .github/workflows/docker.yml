@@ -94,39 +94,39 @@ jobs:
           provenance: true
           sbom: true
 
-  # 镜像扫描：检测已知漏洞
-  scan:
-    name: Trivy vulnerability scan
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      packages: read
-      security-events: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build image for scan
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64
-          push: false
-          tags: git-lfs-py-server:scan
-          cache-from: type=gha
-
-      - name: Run Trivy scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: git-lfs-py-server:scan
-          format: sarif
-          output: trivy-results.sarif
-          severity: HIGH,CRITICAL
-
-      - name: Upload Trivy scan results
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
+  # 可选：镜像漏洞扫描（默认 disabled，需要 trivy-action 依赖的网络可达）
+  # 如需开启：
+  #   1. uncomment 下面的 scan job
+  #   2. 验证 aquasecurity/trivy-action 当前可用版本
+  #   3. trivy 首次运行会下载漏洞库，可能超时
+  # scan:
+  #   name: Trivy vulnerability scan
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.event_name != 'pull_request'
+  #   permissions:
+  #     contents: read
+  #     packages: read
+  #     security-events: write
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Build image for scan
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         context: .
+  #         platforms: linux/amd64
+  #         push: false
+  #         tags: git-lfs-py-server:scan
+  #         cache-from: type=gha
+  #     - name: Run Trivy scanner
+  #       uses: aquasecurity/trivy-action@0.28.0
+  #       with:
+  #         image-ref: git-lfs-py-server:scan
+  #         format: sarif
+  #         output: trivy-results.sarif
+  #         severity: HIGH,CRITICAL
+  #     - name: Upload Trivy scan results
+  #       if: always()
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: trivy-results.sarif
