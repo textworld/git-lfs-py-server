@@ -1,0 +1,130 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag_suffix:
+        description: "Tag suffix (e.g. 'rc1', 'beta')"
+        required: false
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and push
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read       # 读 checkout
+      packages: write      # 推送到 GHCR
+      id-token: write      # 启用 provenance attestation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 多架构构建需要 QEMU 模拟非原生架构
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # PR 不登录（不推送），主线/标签才登录
+      - name: Log in to ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 自动从 git ref 推导 tag：
+      #   main 分支 → :main, :main-<sha>, :latest
+      #   PR        → :pr-<num>
+      #   v1.2.3    → :1.2.3, :1.2, :latest（如果是仓库中最新 tag）
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # provenance attestation（SLSA 来源证明）
+          provenance: true
+          # SBOM（软件物料清单）
+          sbom: true
+          flavor: |
+            latest=auto
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tag_suffix }},enable={{inputs.tag_suffix != ''}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # 多架构：x86_64 + arm64
+          platforms: linux/amd64,linux/arm64
+          # PR 不推送，只构建验证
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          # GitHub Actions Cache 缓存镜像层
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # 输出 SBOM 和 provenance 到镜像
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+  # 镜像扫描：检测已知漏洞
+  scan:
+    name: Trivy vulnerability scan
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image for scan
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          tags: git-lfs-py-server:scan
+          cache-from: type=gha
+
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: git-lfs-py-server:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
